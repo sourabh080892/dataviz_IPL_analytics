@@ -1,0 +1,948 @@
+---
+title: "Who will win next season of IPL"
+author: "Sourabh Gupta"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 8.5) # fig.width = 7.25
+
+# Course: BUAN 5210
+# Title: Final Project - Data Vis : TA
+# Purpose: Which IPL team has highest chances of winning next season
+# Author: Sourabh Gupta
+
+```
+
+# Goal of the EDA:
+
+The goal of this EDA is to understand different parameters which help a team to increase their chances of winning a match and eventually Finale.
+
+# Prerequisites for analysis
+
+Following needs to be prior to any analysis:
+
++ Clear your environment
++ Load required packages
++ Organize your work and point to the right directories
+
+```{r include=FALSE}
+
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+
+# Clear environment of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE) {
+  lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), 
+         detach, character.only = TRUE, unload = TRUE)
+}
+
+# load required libraries
+library(tidyverse)
+library(here)
+library(skimr)
+library(janitor)
+library(gridExtra)
+library(GGally)
+library(knitr)
+library(kableExtra)
+library(pander)
+library(formattable)
+library(ggrepel)
+library(scales)
+library(psych)
+library(treemap)
+library(RColorBrewer)
+library(DT)
+
+```
+
+Load the dataset and remove the observations from matches dataset where there is not result. So, observations with normal result are kept.
+
+```{r}
+deliveries<-read.csv("deliveries.csv")
+matches<-read.csv("matches.csv")
+matches<-matches[matches$result=="normal",]
+```
+
+```{r}
+matches$date <- as.Date(matches$date,
+                        format = "%d-%m-%y")
+
+write.csv(matches,"E:/SeattleU Education/2nd Quarter, Winter19/BUAN 5210 Data Visualization/Final Project/IPL/ipl/match.csv", row.names = FALSE)
+
+```
+
+# Result so far
+
+```{r}
+resu <- matches %>%
+  group_by(season) %>%
+  slice(which.max(date)) %>%
+  select(season, winner)
+
+grid.table(resu)
+
+
+```
+
+# Teams Playing this Season 2019
+
+```{r}
+playing <- c("Teams Playing IPL, 2019","Chennai Super Kings", "Delhi Capitals", "Kings XI Punjab", "Kolkata Knigh Riders", "Mumbai Indians", "Rajasthan Royals", "Royal Challengers Bangalore", "Sunrisers Hydrabad")
+
+grid.table(playing)
+```
+
+# Number of matches played in different cities
+
+```{r}
+ggplot(matches[which(!is.na(matches$city)),],aes(city,fill= city,rm.na=T)) +geom_bar() +
+ylab("Number of Matches Played") +
+guides(fill=FALSE) +
+       theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Number of matches played in different stadiums
+
+```{r}
+ggplot(matches,aes(venue, rm.na=T)) +geom_bar(fill="#0072B2")+ 
+ylab("Number of Matches Played") + theme_minimal()  +
+theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Is winning the toss really an advantage?
+
+```{r}
+matches$toss_match<-ifelse(as.character(matches$toss_winner)==as.character(matches$winner),"Won","Lost")
+ggplot(matches[which(!is.na(matches$toss_match)),],aes(toss_match, fill = toss_match))+ 
+geom_bar()+ xlab("Toss") +ylab("Number of matches won")+ ggtitle("How much of a advantage is winning the toss") +
+  theme_minimal() +
+theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Is home advantage a real thing in IPL?
+
+```{r}
+Data<-matches[matches$season!="2009",]
+Data$date<- as.Date(Data$date)
+Data1<-Data[Data$date < as.Date("2014-04-16") | Data$date > as.Date("2014-04-30"),]
+Data1$home_team[Data1$city=="Bangalore"]<- "Royal Challengers Bangalore"
+Data1$home_team[Data1$city=="Chennai"]<- "Chennai Super Kings"
+Data1$home_team[Data1$city=="Delhi"]<- "Delhi Daredevils"
+Data1$home_team[Data1$city=="Chandigarh"]<- "Kings XI Punjab"
+Data1$home_team[Data1$city=="Jaipur"]<- "Rajasthan Royals"
+Data1$home_team[Data1$city=="Mumbai"]<- "Mumbai Indians"
+Data1$home_team[Data1$city=="Kolkata"]<- "Kolkata Knight Riders"
+Data1$home_team[Data1$city=="Kochi"]<- "Kochi Tuskers Kerala"
+Data1$home_team[Data1$city=="Hyderabad" & Data1$season <=2012]<- "Deccan Chargers"
+Data1$home_team[Data1$city=="Hyderabad" & Data1$season >2012]<- "Sunrisers Hyderabad"
+Data1$home_team[Data1$city=="Ahmedabad"]<- "Rajasthan Royals"
+Data1$home_team[Data1$city=="Dharamsala"]<- "Kings XI Punjab"
+Data1$home_team[Data1$city=="Visakhapatnam" & Data1$season== 2015]<- "Sunrisers Hyderabad"
+Data1$home_team[Data1$city=="Ranchi" & Data1$season== 2013]<- "Kolkata Knight Riders"
+Data1$home_team[Data1$city=="Ranchi" & Data1$season > 2013]<- "Chennai Super Kings"
+Data1$home_team[Data1$city=="Rajkot" ]<- "Gujarat Lions"
+Data1$home_team[Data1$city=="Kanpur" ]<- "Gujarat Lions"
+Data1$home_team[Data1$city=="Raipur" ]<- "Delhi Daredevils"
+Data1$home_team[Data1$city=="Nagpur" ]<- "Deccan Chargers"
+Data1$home_team[Data1$city=="Indore" ]<- "Kochi Tuskers Kerala"
+Data1$home_team[Data1$city=="Pune" & Data1$season!= 2016]<- "Pune Warriors"
+Data1$home_team[Data1$city=="Pune" & Data1$season== 2016]<- "Rising Pune Supergiants"
+Data1<-Data1[ which(!is.na(Data1$home_team)),]
+Data1$win_host <- ifelse(as.character(Data1$winner)==as.character(Data1$home_team),"Home","Away")
+
+ggplot(Data1[which(!is.na(Data1$win_host)),],aes(win_host,fill= win_host))+geom_bar()+
+  ggtitle("Is home advantage a real thing in IPL?")+
+  xlab("Team")+
+  ylab("Number of Matches won")+labs(aesthetic="Winner") +
+  theme_minimal() +
+theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+
+# Number of matches played by each team
+
+```{r}
+ggplot(as.data.frame(table(matches$team2) + table(matches$team1)),aes(reorder(Var1,-Freq),Freq,fill = Var1)) +geom_bar(stat = "identity")+
+  xlab("Player")+
+  ylab("Number of Matches") +guides(fill=FALSE)  +
+  theme_minimal() +
+theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Number of Matches won by each teams
+
+```{r}
+ggplot(matches,aes(winner)) +geom_bar(fill="#0072B2") + xlab("Team")+
+ylab("Matches won") + theme_minimal() +
+theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Win percentage of each team in IPL
+
+```{r}
+matches_won<-as.data.frame(table(matches$winner))
+colnames(matches_won)[2]<-"Won"
+matches_played<-as.data.frame(table(matches$team2) + table(matches$team1))
+colnames(matches_played)[2]<-"Played"
+
+ggplot(left_join(matches_played,matches_won ),aes(reorder(Var1,-Won/Played),Won*100/Played,fill = Var1)) +geom_bar(stat = "identity")+ xlab("Team")+
+  ylab("Win Percentage") +  guides(fill=FALSE)+coord_cartesian(ylim = c(0, 100)) + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+``` 
+
+# Margin of victories in IPL
+
+```{r}
+
+ggplot(matches[matches$win_by_runs!=0,],aes(id,win_by_runs,col= winner )) + geom_point() +
+  ylab("Runs won by ") + xlab("Matches won by team batting first")+
+  ggtitle("Margin of Victories(Won by team batting first)")+ 
+  scale_y_continuous(breaks=c(0,25,50,75,100))+
+  geom_hline(yintercept = mean(matches[matches$win_by_runs!=0,]$win_by_runs),col="blue") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+  
+ggplot(matches[matches$win_by_wickets!=0,],aes(id,win_by_wickets,col= winner )) + geom_point() +
+  ylab("Wickets won by ") + xlab("Matches won by team bowling first")+
+  ggtitle("Margin of Victories(Won by team bowling first)")+
+  scale_y_continuous(breaks=c(2,4,6,8,10))+
+  geom_hline(yintercept = mean(matches[matches$win_by_wickets!=0,]$win_by_wickets),col="blue") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+
+```
+
+# Top Batsmen
+
+```{r}
+df<- deliveries %>% group_by(batsman)%>% summarise(runs=sum(batsman_runs)) %>% arrange(desc(runs)) %>%
+  filter(runs > 3000) 
+df %>% ggplot(aes(reorder(batsman,-runs),runs,fill=batsman)) +geom_bar(stat = "identity") +xlab("Batsman")+ ylab("Runs")+ 
+  xlab("Player")+ ggtitle("Top Batsmen")+ guides(fill=F) + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Best seat in the house => Non-striker's end!
+
+Compare this plot with the earlier one, it clearly shows without significant contribution from the other end you cant accumulate runs unless you are CH GAYLE of course
+
+```{r}
+deliveries %>% group_by(non_striker) %>% 
+    summarise(Runs= sum(total_runs)) %>% top_n(n=10,wt= Runs) %>% ggplot(aes(reorder(non_striker,-Runs),Runs,fill=non_striker)) + geom_bar(stat="identity")+ xlab("Players") + 
+    guides(fill=F) + ggtitle("Best seat in the house- Non-striker's end!") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Top Bowlers
+
+```{r}
+df<-deliveries %>% group_by(bowler) %>% filter(player_dismissed!="") %>% summarise(wickets= length(player_dismissed)) %>% top_n(n=10,wt=wickets) 
+df %>% ggplot(aes(reorder(bowler,-wickets),wickets,fill=bowler))+geom_bar(stat = "identity") + ylab("Wickets")+ 
+    xlab("Player")+ ggtitle("Top Bowlers")+ guides(fill=F) + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+
+```
+
+# Total runs scored in each delivery of the over
+
+```{r}
+df <- deliveries %>% group_by(ball) %>% summarise(Runs = sum(total_runs)) %>% filter(ball<7) 
+  print(df)
+  df %>% ggplot(aes(ball,Runs,fill=ball)) +geom_bar(stat = "identity")+scale_x_continuous(breaks = c(1,2,3,4,5,6))+ 
+  guides(fill=F) +xlab("Ball") + ylab("Total runs scored") + ggtitle("Total runs scored in each delivery of the over") + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Average number of runs scored in each delivery of the over
+
+```{r}
+df<-deliveries %>% group_by(ball) %>% summarise(Runs = mean(total_runs)) %>% filter(ball<7)
+  print(df)
+  df %>% ggplot(aes(ball,Runs,fill=ball)) +geom_bar(stat = "identity")+scale_x_continuous(breaks = c(1,2,3,4,5,6))+ 
+  guides(fill=F) +xlab("Ball") + ylab("Average runs scored") + ggtitle("Average number of runs scored in each delivery of the over") + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Total number of runs scored in each over of the innings
+
+```{r}
+df <- deliveries %>% group_by(over) %>% filter(is_super_over==0) %>% summarise(Runs= sum(total_runs))
+  print(df)
+  df %>% ggplot(aes(over,Runs,fill=over))+geom_bar(stat = "identity")+scale_x_continuous(breaks = 1:20)+ 
+   guides(fill=F) +xlab("Over") + ylab("Total runs scored") + ggtitle("Total number of runs scored in each over of the innings") + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Average number of runs scored in each over of the innings
+
+```{r}
+df <- deliveries %>% group_by(over) %>% filter(is_super_over==0) %>% summarise(Runs= mean(total_runs)*6)
+  print(df)
+  df %>% ggplot(aes(over,Runs,fill=over))+geom_bar(stat = "identity")+scale_x_continuous(breaks = 1:20)+ 
+  guides(fill=F) +xlab("Over") + ylab("Total runs scored") + ggtitle("Average number of runs scored in each over of the innings") + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Total number of wickets in each over of the innings
+
+```{r}
+deliveries %>% group_by(over) %>% filter(is_super_over==0) %>% summarise(Wickets= length(player_dismissed)) %>% 
+    ggplot(aes(over,Wickets,fill=over))+geom_bar(stat = "identity") +scale_x_continuous(breaks = 1:20)+ 
+     guides(fill=F) +xlab("Over") + ylab("Total wickets taken") + ggtitle("Total number of wickets in each over of the innings") + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(colour = "#D3D3D3"))
+
+```
+
+# Batsmen with top strike rate
+
+```{r}
+deliveries %>% group_by(batsman) %>% filter(length(total_runs)>500) %>% summarise(strike_rate= mean(batsman_runs)*100) %>% top_n(n=10,wt=strike_rate) %>%
+  ggplot(aes(reorder(batsman,-strike_rate),strike_rate,fill=batsman))+ geom_bar(stat="identity")+ xlab("Batsman") + ylab("Strike Rate") +
+  ggtitle("Batsmen with top strike rate",subtitle = "Minimum 500 balls faced") + guides(fill=F) + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Comparing the all time top run getters in IPL
+(V Kohli, R Sharma, S Raina, G Gambhir)
+
+
+How useful have the runs scored been?
+
+```{r}
+colnames(matches)[1]<- "match_id"
+deliveries %>% left_join(matches) %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% filter(result=="normal") %>%
+     group_by(batsman,match_id,batting_team,winner) %>%  summarise(Runs=sum(batsman_runs)) %>% 
+    ggplot(aes(match_id,Runs))+geom_line() + geom_smooth() + coord_cartesian(ylim = c(0, 120))+ xlab("Matches") + facet_grid(batsman ~ ifelse(as.character(batting_team)==as.character(winner),"Winning Cause","Losing Cause"))  + theme_minimal() +
+  theme(axis.line = element_line(colour = "#D3D3D3"))
+```
+
+##Against which bowlers have the top run-getters performed?
+
+```{r}
+Kohli<- deliveries %>% group_by(batsman,bowler) %>% filter(batsman=="V Kohli") %>% summarise(runs=sum(batsman_runs)) %>% top_n(n=50,wt=runs)
+Rohit<- deliveries %>% group_by(batsman,bowler) %>% filter(batsman=="RG Sharma") %>% summarise(runs=sum(batsman_runs)) %>% top_n(n=50,wt=runs)
+Gambhir<- deliveries %>% group_by(batsman,bowler) %>% filter(batsman=="G Gambhir") %>% summarise(runs=sum(batsman_runs)) %>% top_n(n=50,wt=runs)
+Raina<- deliveries %>% group_by(batsman,bowler) %>% filter(batsman=="SK Raina") %>% summarise(runs=sum(batsman_runs)) %>% top_n(n=50,wt=runs)
+treemap(Kohli, #Your data frame object
+          index=c("batsman","bowler"),  #A list of your categorical variables
+          vSize = "runs",  #This is your quantitative variable
+          type="index", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(7,"Reds"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 12,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs by Virat Kohli against different bowlers",
+          fontface.labels = "bold",
+          border.col="#FFFFFF",
+          fontsize.legend = 0,bg.labels = "black",fontcolor.labels= "#FFFFFF",
+          aspRatio= 1.1
+ )
+treemap(Rohit, #Your data frame object
+          index=c("batsman","bowler"),  #A list of your categorical variables
+          vSize = "runs",  #This is your quantitative variable
+          type="index", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(7,"Blues"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 12,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs by RG Sharma against different bowlers",
+          fontface.labels = "bold",
+           border.col="#FFFFFF",
+           fontsize.legend = 0,bg.labels = "black",fontcolor.labels= "#FFFFFF",
+          aspRatio= 1.1
+ )
+treemap(Gambhir, #Your data frame object
+          index=c("batsman","bowler"),  #A list of your categorical variables
+          vSize = "runs",  #This is your quantitative variable
+          type="index", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(4,"Purples"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 12,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs by G Gambhir against different bowlers",
+          fontface.labels = "bold",
+          border.col="#FFFFFF",
+          fontsize.legend = 0,bg.labels = "black",fontcolor.labels= "#FFFFFF",
+          aspRatio= 1.1
+ )
+treemap(Raina, #Your data frame object
+          index=c("batsman","bowler"),  #A list of your categorical variables
+          vSize = "runs",  #This is your quantitative variable
+          type="index", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(3,"YlOrBr"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 12,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs by SK Raina against different bowlers",
+          fontface.labels = "bold",
+          border.col="#FFFFFF",
+          fontsize.legend = 0,
+          bg.labels = "black",fontcolor.labels= "#FFFFFF",
+           aspRatio= 1.1
+ )
+```
+
+##Top run getters performance against different teams
+
+```{r}
+df<-deliveries %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir")  %>% 
+ group_by(batsman,bowling_team) %>% summarise(runs = sum(batsman_runs)) %>% filter(runs >100)
+  treemap(df, #Your data frame object
+          index=c("batsman","bowling_team"),  #A list of your categorical variables
+          vSize = "runs", 
+          vColor = "bowling_team",
+          type="categorical", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(12,"Set3"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 15,
+          fontfamily.title = "serif",
+          fontfamily.labels = "symbol",
+          title = "Runs against diff teams",
+          aspRatio = 1,
+          border.col="#FFFFFF",bg.labels = "#FFFFFF" ,fontcolor.labels= "black",fontsize.legend = 0
+  )
+```
+
+
+##Batting with whom have our top run getters been successful?
+
+```{r}
+df<-deliveries %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir")  %>% 
+    group_by(batsman,non_striker) %>% summarise(runs = sum(batsman_runs)) %>% filter(runs >100)
+  treemap(df, #Your data frame object
+          index=c("batsman","non_striker"),  #A list of your categorical variables
+          vSize = "runs", 
+          vColor = "batsman",
+          type="categorical", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(6,"Set1"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 15,
+          fontfamily.title = "serif",
+          fontfamily.labels = "italic",
+          title = "Runs with different players at the other end ",
+          aspRatio = 1,
+          border.col="#FFFFFF",bg.labels = "black" ,fontcolor.labels= "#FFFFFF",fontsize.legend = 0
+  )
+```
+
+##Type of Dismissals
+
+```{r}
+df<-deliveries %>% 
+    filter(player_dismissed=="V Kohli"| player_dismissed=="SK Raina" |player_dismissed=="RG Sharma"|player_dismissed=="G Gambhir") %>%
+    group_by(player_dismissed,dismissal_kind) %>% summarise(type= length(dismissal_kind))
+  
+  treemap(df, #Your data frame object
+          index=c("player_dismissed","dismissal_kind"),  #A list of your categorical variables
+          vSize = "type", 
+          vColor = "dismissal_kind",
+          type="categorical", #Type sets the organization and color scheme of your treemap
+          palette = brewer.pal(6,"Set2"),  #Select your color palette from the RColorBrewer presets or make your own.
+          fontsize.title = 15,
+          fontfamily.title = "serif",
+          fontfamily.labels = "italic",
+          title = "Type of Dismissals ",
+          aspRatio = 1,
+          border.col="#FFFFFF",bg.labels = "black" ,fontcolor.labels= "#FFFFFF",fontsize.legend = 0
+  )
+```
+
+##Strike rate in different stages of the game
+
+```{r}
+deliveries %>% 
+    filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% 
+    group_by(batsman,over) %>% summarise(strike= mean(batsman_runs)*100) %>%  
+    ggplot(aes(over,strike, col=batsman)) + geom_line(size=2) + ylab("Strike Rate") + 
+    ggtitle("Strike rate in different stages of the game ") + scale_x_continuous(breaks = 1:20)  + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "#D3D3D3"))
+
+```
+
+##Season wise comparison(Runs)
+
+```{r}
+deliveries %>% left_join(matches) %>% 
+  filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% 
+  group_by(batsman,season) %>% summarise(runs = sum(batsman_runs)) %>%
+    ggplot(aes(season,runs, col=batsman)) +geom_line(size= 2) + ggtitle("Season wise comparision(Runs)") +
+    scale_x_continuous(breaks = 2008:2016)  + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "#D3D3D3"))
+```
+
+##Season wise comparison(Boundaries)
+
+```{r}
+deliveries %>% left_join(matches) %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% 
+   filter(batsman_runs==4|batsman_runs==6) %>% group_by(batsman,season) %>% summarise(boundaries= length(batsman_runs)) %>%
+    ggplot(aes(season,boundaries, col=batsman)) +geom_line(size= 2) + ggtitle("Season wise comparision(Boundaries)") +
+    scale_x_continuous(breaks = 2008:2016)  + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "#D3D3D3"))
+```
+
+##Distribution of Runs
+
+```{r}
+deliveries %>% left_join(matches) %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% 
+  group_by(batsman,batsman_runs) %>% summarise(freq=length(batsman_runs)) %>% filter(batsman_runs != 5) %>%
+    ggplot(aes(batsman,freq,fill=as.factor(batsman_runs))) + 
+    geom_bar(stat = "identity",position= "dodge") + coord_flip() + ylab("Frequency") + xlab(" Batsman") +
+    labs(fill="Type of runs scored")  + theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "#D3D3D3"))
+```
+
+##Innings Progressions
+
+```{r}
+colnames(matches)[1]<- "match_id" 
+deliveries %>% left_join(matches) %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>%
+    group_by(match_id) %>% 
+   mutate(cum_run= cumsum(batsman_runs),cum_ball=1:length(match_id)) %>%
+    ggplot(aes(cum_ball,cum_run,col=ifelse(as.character(batting_team)==as.character(winner),"Winning Cause","Losing Cause"))) + 
+    geom_point() + facet_wrap(~batsman,ncol=2) + labs(col="Type of Runs") + xlab("Balls") + ylab("Runs")+
+    ggtitle(" Relating Innings Progression with Result of the match")  + theme_minimal() +
+  theme(axis.line = element_line(colour = "#D3D3D3"))
+```
+
+```{r}
+deliveries %>%  left_join(matches) %>% filter(batsman=="V Kohli"| batsman=="SK Raina" |batsman=="RG Sharma"|batsman=="G Gambhir") %>% 
+    group_by(match_id) %>% 
+    mutate(cum_run= cumsum(batsman_runs),cum_ball=1:length(match_id)) %>% filter(is_super_over==0) %>%
+    ggplot(aes(cum_ball,cum_run,col=as.factor(inning))) + geom_point()  + facet_wrap(~batsman,ncol=2) + labs(col="Innings") + xlab("Balls") + ylab("Runs")+
+    ggtitle("Innings Progression in Different innings")  + theme_minimal() +
+  theme(axis.line = element_line(colour = "#D3D3D3"))
+```
+
+# Economy vs Wicket
+
+```{r}
+deliveries %>% 
+    group_by(bowler) %>% filter(length(ball) > 500) %>% 
+    summarise(Economy= mean(total_runs)*6, Wickets = length(which(player_dismissed!="")) ) %>% 
+    ggplot(aes(Wickets,Economy,label=bowler,alpha= Wickets/Economy)) +geom_text(color="black") + theme_minimal(base_family = "Ubuntu Condensed")+
+    theme(legend.position = "none",
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          plot.background = element_rect(fill = "#EFF2F4"),
+          axis.text = element_text(size = 15),
+          plot.title = element_text(size=16)) +
+    ggtitle("Economy  vs Wickets!",subtitle = "Min balls bowled : 500") + 
+    coord_cartesian(xlim = c(25, 170))
+```
+
+# Statistics Check using Probabilities
+
+## Individual Score vs Win Probability
+
+```{r}
+colnames(matches)[1]<- "match_id"
+cen <- deliveries %>% 
+  group_by(match_id, batting_team, batsman) %>%
+  summarise(runs = sum(batsman_runs))
+
+cen <- left_join(cen, matches[, c("match_id", "winner")], by ="match_id")
+cen$result = ifelse(cen$batting_team==cen$winner, TRUE, FALSE)
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(20,180, 20)) {
+  cenn <- cen[cen$runs > i,] %>%
+    distinct(match_id, batting_team, .keep_all = TRUE) %>%
+    left_join(matches[, c("match_id", "winner")], by ="match_id")
+  names(cenn)[names(cenn) == 'winner.x'] <- 'winner'
+  cenn$winner.y <- NULL
+  j = j + 1
+  freq = nrow(cenn[cenn$result == "TRUE", ]) / nrow(cenn)
+  probb[j, ] <- c(freq, i, nrow(cenn))
+  
+}
+
+ggplot(probb, aes(score, won)) + 
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 20),1)) + 
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+  labs(title="Individual Score vs Win Probability",
+       subtitle = "Count in box is number of mathces where it happened")
+
+```
+
+## Two Batsman Score vs Win Probability
+
+```{r}
+fifty <- deliveries %>% 
+  group_by(match_id, batting_team, batsman) %>%
+  summarise(runs = sum(batsman_runs))
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(40,100, 10)) {
+  fifty_result <- fifty[fifty$runs >= i,] %>%
+    group_by(match_id, batting_team) %>%
+    summarise(count =n())
+    
+  fifty_result <- fifty_result[fifty_result$count >= 2,]
+  
+  fifty_result <- left_join(fifty_result, matches[, c("match_id", "winner")], by ="match_id")
+  
+  fifty_result$result = ifelse(fifty_result$batting_team==fifty_result$winner, TRUE, FALSE)
+  
+  j = j + 1
+  freq = nrow(fifty_result[fifty_result$result == "TRUE", ]) / nrow(fifty_result)
+  probb[j, ] <- c(freq, i, nrow(fifty_result))
+  
+}
+
+ggplot(probb, aes(score, won)) + 
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 10),1)) + 
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+  labs(title="Two Batsman Score vs Win Probability",
+       subtitle = "Count in box is number of mathces where it happened")
+```
+
+## First 5 Overs Score vs Win Probability
+
+```{r}
+Fover <- deliveries[deliveries$over<=5,] %>% 
+  group_by(match_id, batting_team) %>%
+  summarise(runs = sum(total_runs))
+
+Fover_result <- left_join(Fover, matches[, c("match_id", "winner")], by ="match_id") 
+
+Fover_result$result = ifelse(Fover_result$batting_team==Fover_result$winner, TRUE, FALSE)
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(20,90, 10)) {
+  Fover_result <- Fover_result[Fover_result$runs > i,]
+  
+  j = j + 1
+  freq = nrow(Fover_result[Fover_result$result == "TRUE", ]) / nrow(Fover_result)
+  probb[j, ] <- c(freq, i, nrow(Fover_result))
+  
+}
+
+ggplot(probb, aes(score, won)) + 
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 10),1)) + 
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+  labs(title="First 5 Overs Score vs Win Probability",
+       subtitle = "Count in box is number of mathces where it happened")
+```
+
+## Last 5 Overs Score vs Win Probability
+
+```{r}
+Fover <- deliveries[deliveries$over>=16,] %>% 
+  group_by(match_id, batting_team) %>%
+  summarise(runs = sum(total_runs))
+
+Fover_result <- left_join(Fover, matches[, c("match_id", "winner")], by ="match_id") 
+
+Fover_result$result = ifelse(Fover_result$batting_team==Fover_result$winner, TRUE, FALSE)
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(20,120, 10)) {
+  Fover_result <- Fover_result[Fover_result$runs > i,]
+  
+  j = j + 1
+  freq = nrow(Fover_result[Fover_result$result == "TRUE", ]) / nrow(Fover_result)
+  probb[j, ] <- c(freq, i, nrow(Fover_result))
+  
+}
+
+ggplot(probb, aes(score, won)) + 
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 10),1)) + 
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+  labs(title="Last 5 Overs Score vs Win Probability",
+       subtitle = "Count in box is number of mathces where it happened")
+
+```
+
+## Parternship vs Win Probability
+
+```{r}
+
+deliveries$wicket = cumsum(ifelse(deliveries$player_dismissed=='', 0, 1))
+
+patnership <- deliveries %>%
+  group_by(match_id, batting_team, wicket) %>%
+  summarise(runs = sum(total_runs))
+
+patnership <- patnership[order(patnership$wicket, patnership$batting_team), ]
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(40,200, 20)) {
+  patnership_result <- patnership[patnership$runs > i,]
+  patnership_result <- patnership_result %>%
+    distinct(match_id, batting_team, .keep_all = TRUE) %>%
+    left_join(matches[, c("match_id", "winner")], by ="match_id") 
+  
+  patnership_result$result = ifelse(patnership_result$batting_team==patnership_result$winner, TRUE, FALSE)
+  
+  j = j + 1
+  freq = nrow(patnership_result[patnership_result$result == "TRUE", ]) / nrow(patnership_result)
+  probb[j, ] <- c(freq, i, nrow(patnership_result))
+
+}
+
+ggplot(probb, aes(score, won)) +
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 20),1)) +
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35,
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+ggtitle("Parternship vs Win Probability")
+
+```
+
+## Opening Parternship vs Win Probability
+
+```{r}
+opening_partnership = patnership[order(patnership$wicket), ]  %>%
+    distinct(match_id, batting_team, .keep_all = TRUE)
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(20,180, 20)) {
+  opening_partnership_result <- opening_partnership[opening_partnership$runs > i,]
+  opening_partnership_result <- opening_partnership_result %>%
+    distinct(match_id, batting_team, .keep_all = TRUE) %>%
+    left_join(matches[, c("match_id", "winner")], by ="match_id") 
+  
+  opening_partnership_result$result = ifelse(opening_partnership_result$batting_team==opening_partnership_result$winner, TRUE, FALSE)
+  
+  j = j + 1
+  freq = nrow(opening_partnership_result[opening_partnership_result$result == "TRUE", ]) / nrow(opening_partnership_result)
+  probb[j, ] <- c(freq, i, nrow(opening_partnership_result))
+
+}
+
+ggplot(probb, aes(score, won)) +
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 20),1)) +
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35,
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+ggtitle("Opening Parternship vs Win Probability")
+
+```
+
+## Multi Parternship vs Win Probability
+
+```{r}
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(10,70, 10)) {
+  multi_patnership <- patnership[patnership$runs > i,] %>%
+    group_by(match_id, batting_team) %>%
+    summarise(count =n())
+    
+  multi_patnership <- multi_patnership[multi_patnership$count>2, ] %>%
+    distinct(match_id, batting_team, .keep_all = TRUE) %>%
+    left_join(matches[, c("match_id", "winner")], by ="match_id") 
+  
+  multi_patnership$result = ifelse(multi_patnership$batting_team==multi_patnership$winner, TRUE, FALSE)
+  
+  j = j + 1
+  freq = nrow(multi_patnership[multi_patnership$result == "TRUE", ]) / nrow(multi_patnership)
+  probb[j, ] <- c(freq, i, nrow(multi_patnership))
+
+}
+
+ggplot(probb, aes(score, won)) +
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 20),1)) +
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35,
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+ggtitle("Multi Parternship vs Win Probability")
+
+```
+
+## First 5 Overs Wickets vs Win Probability
+
+```{r}
+deliveries$w = ifelse(deliveries$player_dismissed=='', 0, 1)
+
+wicket <- deliveries[deliveries$over<=5,] %>%
+  group_by(match_id, batting_team) %>%
+  summarise(wic_sum = sum(w))
+
+j = 0
+
+probb <- data.frame(won = numeric(0), score = numeric(0), NoOfMatches = numeric(0))
+
+for (i in seq(0,7,1)) {
+  wicket_result <- wicket[wicket$wic_sum >= i,] %>%
+    left_join(matches[, c("match_id", "winner")], by ="match_id") 
+  
+  wicket_result$result = ifelse(wicket_result$batting_team==wicket_result$winner, TRUE, FALSE)
+  
+  j = j + 1
+  freq = nrow(wicket_result[wicket_result$result == "FALSE", ]) / nrow(wicket_result)
+  probb[j, ] <- c(freq, i, nrow(wicket_result))
+
+}
+
+ggplot(probb, aes(score, won)) +
+  geom_point() + geom_line(color = "red") +
+  scale_x_continuous(breaks = round(seq(min(probb$score), max(probb$score), by = 1),1)) +
+  geom_label_repel(aes(label = NoOfMatches),
+                  box.padding   = 0.35,
+                  point.padding = 0.5,
+                  segment.color = 'grey50') +
+  theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+    axis.line = element_line(colour = "#D3D3D3")) +
+  xlab("Score") + ylab("Win Probability") +
+  labs(title="First 5 Overs Wickets vs Win Probability",
+       subtitle = "Count in box is number of mathces where it happened")
+
+```
+
+
+
+
